@@ -8,194 +8,69 @@
 #include <chrono>
 #include <Dwmapi.h> 
 #include <TlHelp32.h>
+#include "overlay.h"
 
 char* d3d9DeviceTable[119];
 extern endSceneFunc trampEndScene;
+extern presentFunc trampPresent;
 
 #define FRAME_BUFFER_LEN 30
 int frame_idx = 0;
-double frame_sum = 0;
-int frame_buffer[FRAME_BUFFER_LEN] = { 0 };
+long long frame_sum = 0;
+long long frame_buffer[FRAME_BUFFER_LEN] = { 0 };
 
-LPDIRECT3DDEVICE9 d3dDevice = NULL;
-LPDIRECT3D9 d3dOverlay = NULL;
-LPDIRECT3DDEVICE9 d3dOverlayDevice = NULL;
-LPD3DXFONT font;
+
 extern HWND hwnd;
-HWND overlayHandle;
-const MARGINS  margin = { 0,0,800,600 };
 
-double calcFps(long long frame_time) {
+long long frame_time;
+
+
+
+long long calcFps(long long frame_time) {
     frame_sum -= frame_buffer[frame_idx];
     frame_sum += frame_time;
     frame_buffer[frame_idx++] = frame_time;
     frame_idx =  frame_idx % FRAME_BUFFER_LEN;
-    return 1000/(frame_sum / FRAME_BUFFER_LEN);
+    return 1000000000/(frame_sum / FRAME_BUFFER_LEN);
 
 }
 
 
 
-void drawRectangle(int x, int y, int h, int w, D3DCOLOR color) {
+void drawRectangle(int x, int y, int h, int w, D3DCOLOR color, LPDIRECT3DDEVICE9 d3dDevice) {
     D3DRECT r = { x, y, x + w, y + h };
     d3dDevice->Clear(1, &r, D3DCLEAR_TARGET, color, 0, 0);
 }
 
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    switch (message)
-    {
-    case WM_PAINT:
-    {
-        DwmExtendFrameIntoClientArea(hWnd, &margin);
-    }break;
 
-    case WM_DESTROY:
-    {
-        PostQuitMessage(0);
-        return 0;
-    } break;
-    }
-
-    return DefWindowProc(hWnd, message, wParam, lParam);
-}
-
-void createWindow() {
-    WNDCLASSEX wc;
-
-    ZeroMemory(&wc, sizeof(WNDCLASSEX));
-
-    HINSTANCE hInstance = GetModuleHandle(0);
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = hInstance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)RGB(0, 0, 0);
-    wc.lpszClassName = L"OverlayClass";
-
-    RegisterClassEx(&wc);
-    RECT rect = {};
-    GetWindowRect(hwnd, &rect);
-
-    overlayHandle = CreateWindowEx(0,
-        L"OverlayClass",
-        L"",
-        WS_EX_TOPMOST | WS_POPUP,
-        rect.left, rect.top,
-        rect.right - rect.left, rect.top-rect.bottom,
-        NULL,
-        NULL,
-        hInstance,
-        NULL);
-
-    SetWindowLong(overlayHandle, GWL_EXSTYLE, (int)GetWindowLong(overlayHandle, GWL_EXSTYLE) | WS_EX_LAYERED | WS_EX_TRANSPARENT);
-    SetLayeredWindowAttributes(overlayHandle, RGB(0, 0, 0), 0, ULW_COLORKEY);
-    SetLayeredWindowAttributes(overlayHandle, 0, 255, LWA_ALPHA);
-
-}
-void initD3D() {
-    createWindow();
-    d3dOverlay = Direct3DCreate9(D3D_SDK_VERSION);    // create the Direct3D interface
-    
-    D3DPRESENT_PARAMETERS d3dpp = {};    // create a struct to hold various device information
-    
-    d3dpp.Windowed = TRUE;    // program windowed, not fullscreen
-    d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;    // discard old frames
-    d3dpp.hDeviceWindow = overlayHandle;    // set the window to be used by Direct3D
-    d3dpp.BackBufferFormat = D3DFMT_X8R8G8B8;     // set the back buffer format to 32-bit
-    d3dpp.BackBufferWidth = 800;    // set the width of the buffer
-    d3dpp.BackBufferHeight = 600;    // set the height of the buffer
-
-    d3dpp.EnableAutoDepthStencil = TRUE;
-    d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
-
-    // create a device class using this information and the info from the d3dpp stuct
-    d3dOverlay->CreateDevice(D3DADAPTER_DEFAULT,
-        D3DDEVTYPE_HAL,
-        hwnd,
-        D3DCREATE_SOFTWARE_VERTEXPROCESSING,
-        &d3dpp,
-        &d3dOverlayDevice);
-
-    D3DXCreateFont(
-        d3dOverlayDevice,
-        10,
-        10,
-        FW_BOLD,
-        0,
-        0,
-        DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        ANTIALIASED_QUALITY,
-        FF_DONTCARE | DEFAULT_PITCH,
-        TEXT("Arial"),
-        &font
-    );
-}
-
-void drawText(double frame_time) {
-    RECT rect3;
-    rect3.left = 20;
-    rect3.top = 20;
-    rect3.right = 330;
-    rect3.bottom = 330;
-    D3DCOLOR fontColor3 = D3DCOLOR_ARGB(255, 255, 1, 1);
-    
-    if (font) {
-        font->DrawTextA(
-            NULL,
-            std::to_string(frame_time).c_str(),
-            -1,
-            &rect3,
-            0,
-            fontColor3
-        );
-
-    }
-    /*DrawTextW(
-        hdc,
-        std::to_wstring(frame_time).c_str(),
-        -1,
-        &rect3,
-        0
-    );*/
-}
-
-void renderOverlay(double frame_time) {
-    d3dOverlayDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(0, 0, 0, 0), 1.0f, 0);
-
-    //d3dOverlayDevice->BeginScene();
-
-    drawText(frame_time);
-
-   //d3dOverlayDevice->EndScene();
-
-    d3dOverlayDevice->Present(NULL, NULL, NULL, NULL);
-}
 
 std::chrono::steady_clock::time_point begin;
 std::chrono::steady_clock::time_point end;
 void APIENTRY endSceneHook(LPDIRECT3DDEVICE9 p_pDevice) {
-    end = std::chrono::steady_clock::now();
 
     if (!d3dDevice) {
         d3dDevice = p_pDevice;
-        initD3D();
+        initD3D(d3dDevice);
     }
 
-    long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-    /*int h = 16;
-    int w = 16;
-    drawRectangle(1920 / 2 - (h / 2), 1080 / 2 - (w / 2), h, w, D3DCOLOR_ARGB(100, 245, 125, 215));*/
-
-    double frame_time = calcFps(duration);
-
+    
     renderOverlay(frame_time);
 
-    begin = std::chrono::steady_clock::now();
-    trampEndScene(d3dDevice);
+    trampEndScene(p_pDevice);
 
+}
+
+void APIENTRY presentHook(LPDIRECT3DDEVICE9 p_pDevice, THIS_ CONST RECT* pSourceRect, CONST RECT* pDestRect, HWND hDestWindowOverride, CONST RGNDATA* pDirtyRegion) {
+    //
+    end = std::chrono::steady_clock::now();
+    long long duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+
+    frame_time = (double)calcFps(duration);
+
+    //renderOverlay(frame_time);
+
+    begin = std::chrono::steady_clock::now();
+    trampPresent(p_pDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
 char** initD3D9Table(HWND window) {
@@ -239,17 +114,77 @@ char** initD3D9Table(HWND window) {
 
 const char* REL_JMP = "\xE9";
 const char* ABS_JMP = "\xFF";
-const char* MOV_CMS = "\x49\xBB";
-const char* JMP_CMS = "\x41\xFF\xE3";
+//mov r10, [64 adr]
+const char* MOV_CMS = "\x49\xBA";
+//push r10
+const char* PSH_CMS = "\x41\x57";
+//pop r10
+const char* POP_CMS = "\x41\x5F";
+//jmp r10
+const char* JMP_CMS = "\x41\xFF\xE2";
 
 const char* NOP = "\x90";
 // 1 byte instruction + 4 bytes address
 const uint64_t SIZE_OF_REL_JMP = 5;
-const uint64_t CM_SIZE = 13;
+const uint64_t CM_SIZE_PRESENT = 15;
 // adapted from https://guidedhacking.com/threads/simple-x86-c-trampoline-hook.14188/
 // hookedFn: The function that's about to the hooked
 // hookFn: The function that will be executed before `hookedFn` by causing `hookFn` to take a detour
-void* WINAPI hookFn(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr) {
+void* WINAPI hookFnPresent(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr) {
+
+    if (copyBytesSize < 5)
+    {
+        return nullptr;
+    }
+
+    SIZE_T bytesRead;
+    if (!ReadProcessMemory(GetCurrentProcess(), hookedFn, backupBytes, copyBytesSize, &bytesRead))
+    {
+        DWORD err = GetLastError();
+        MessageBox(0, std::wstring(L"[hookFn] Failed to Backup Original Bytes for " + descr + std::to_wstring(err)).c_str(), L":(", 0);
+        return nullptr;
+    }
+
+
+    char* trampoline = (char*)VirtualAlloc(0, copyBytesSize + CM_SIZE_PRESENT, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+
+    memcpy(trampoline, hookedFn, copyBytesSize);
+    
+    uint64_t hookedFnTrampolineOffset = reinterpret_cast<uint64_t>(hookedFn) + 5;// - trampoline - CM_SIZE;
+    memcpy(trampoline + copyBytesSize, PSH_CMS, 2);
+    memcpy(trampoline + copyBytesSize + 2, MOV_CMS, sizeof(MOV_CMS));
+    memcpy(trampoline + copyBytesSize + 4, &hookedFnTrampolineOffset, sizeof(hookedFnTrampolineOffset));
+    memcpy(trampoline + copyBytesSize + 12, JMP_CMS, 3);
+
+
+    DWORD oldProtect;
+    if (!VirtualProtect(hookedFn, copyBytesSize, PAGE_EXECUTE_READWRITE, &oldProtect))
+    {
+        MessageBox(0, std::wstring(L"[hookFn] Failed to set RXW for " + descr).c_str(), L":(", 0);
+        return nullptr;
+    }
+
+    int hookedFnHookFnOffset = hookFn - hookedFn - SIZE_OF_REL_JMP;
+
+    memcpy(hookedFn, REL_JMP, 1);
+    memcpy(hookedFn + 1, &hookedFnHookFnOffset, sizeof(hookedFnHookFnOffset));
+    memcpy(hookedFn + 5, POP_CMS, 2);
+
+    if (!VirtualProtect(hookedFn, copyBytesSize, oldProtect, &oldProtect))
+    {
+        MessageBox(0, std::wstring(L"[hookFn] Failed to Restore Protection for " + descr).c_str(), L":(", 0);
+    }
+
+    return trampoline;
+}
+
+//mov r11, [64 adr]
+const char* MOV_CMS1 = "\x49\xBB";
+//jmp r11
+const char* JMP_CMS1 = "\x41\xFF\xE3";
+
+const uint64_t CM_SIZE_ENDSCENE = 13;
+void* WINAPI hookFnEndscene(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr) {
 
     if (copyBytesSize < 5)
     {
@@ -277,21 +212,21 @@ void* WINAPI hookFn(char* hookedFn, char* hookFn, int copyBytesSize, unsigned ch
     // allocate executable memory for the trampoline
     // the size is (amount of bytes copied from the original function) + (size of a relative jump + address)
 
-    char* trampoline = (char*)VirtualAlloc(0, copyBytesSize + CM_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    char* trampoline = (char*)VirtualAlloc((LPVOID)0x7FF000000000, copyBytesSize + CM_SIZE_ENDSCENE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 
     // steal the first `copyBytesSize` bytes from the original function
     // these will be used to make the trampoline work
     // --> jump back to `hookedFn` without executing `hookFn` again
     memcpy(trampoline, hookedFn, copyBytesSize);
     // append the relative JMP instruction after the stolen instructions
-    memcpy(trampoline + copyBytesSize, MOV_CMS, sizeof(MOV_CMS));
+    memcpy(trampoline + copyBytesSize, MOV_CMS1, sizeof(MOV_CMS1));
 
     // calculate the offset between the hooked function and the trampoline
     // --> distance between the trampoline and the original function `hookedFn`
     // this will land directly *after* the inserted JMP instruction, hence subtracting 5
-    uint64_t hookedFnTrampolineOffset = reinterpret_cast<uint64_t>(hookedFn) + 5;// - trampoline - CM_SIZE;
+    uint64_t hookedFnTrampolineOffset = reinterpret_cast<uint64_t>(hookedFn) + 6;// - trampoline - CM_SIZE;
     memcpy(trampoline + copyBytesSize + 2, &hookedFnTrampolineOffset, sizeof(hookedFnTrampolineOffset));
-    memcpy(trampoline + copyBytesSize + 10, JMP_CMS, sizeof(JMP_CMS));
+    memcpy(trampoline + copyBytesSize + 10, JMP_CMS1, sizeof(JMP_CMS1));
     //
     // 3. Detour the original function `hookedFn`
     // --> cause `hookedFn` to execute `hookFn` first

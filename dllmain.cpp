@@ -9,11 +9,15 @@
 #include "d3d.h"
 #include <stdexcept>
 
-constexpr int numBytes = 6;
+constexpr int numBytesPresent = 7;
+constexpr int numBytesEndscene = 6;
+#define PRESENT_OFF 17
+#define ENDSCENE_OFF 42
 endSceneFunc trampEndScene;
+presentFunc trampPresent;
 
-unsigned char endSceneBytes[numBytes];
-
+unsigned char presentBytes[numBytesPresent];
+unsigned char endSceneBytes[numBytesEndscene];
 HWND hwnd = NULL;
 
 BOOL CALLBACK enumGetProcessWindow(HWND _hwnd, LPARAM lParam)
@@ -38,10 +42,16 @@ DWORD WINAPI RunThread(LPVOID lpParam) {
 		return 1;
 	}
 
-	char** vtable = initD3D9Table(hwnd);
+	char** vtable = 0;
+	while (!vtable) {
+		vtable = initD3D9Table(hwnd);
+	}
 	if (vtable) {
-		char* endscene_adr = vtable[42];
-		trampEndScene = (endSceneFunc)hookFn((char*)endscene_adr, (char*)endSceneHook, numBytes, endSceneBytes, L"EndScene");
+		char* endscene_adr = vtable[ENDSCENE_OFF];
+		trampEndScene = (endSceneFunc)hookFnEndscene((char*)endscene_adr, (char*)endSceneHook, numBytesEndscene, endSceneBytes, L"EndScene");
+		char* present_adr = vtable[PRESENT_OFF];
+		trampPresent = (presentFunc)hookFnPresent((char*)present_adr, (char*)presentHook, numBytesPresent, presentBytes, L"Present");
+
 	}
 
 	while (!GetAsyncKeyState(VK_DELETE)) {
