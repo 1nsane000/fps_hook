@@ -27,6 +27,9 @@
     <ClInclude Include="overlay.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="direct_write.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -39,6 +42,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="overlay.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="direct_write.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gdi.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

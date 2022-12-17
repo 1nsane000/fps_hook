@@ -9,16 +9,19 @@
 #include <Dwmapi.h> 
 #include <TlHelp32.h>
 #include "overlay.h"
+#include "direct_write.h"
 
 char* d3d9DeviceTable[119];
 extern endSceneFunc trampEndScene;
 extern presentFunc trampPresent;
 
-#define FRAME_BUFFER_LEN 30
+constexpr int FRAME_BUFFER_LEN = 30;
+
 int frame_idx = 0;
 long long frame_sum = 0;
 long long frame_buffer[FRAME_BUFFER_LEN] = { 0 };
 
+LPDIRECT3DDEVICE9 d3dDevice = NULL;
 
 extern HWND hwnd;
 
@@ -36,6 +39,22 @@ long long calcFps(long long frame_time) {
 }
 
 
+IDirect3DVertexBuffer9* createVertexBuffer(LPDIRECT3DDEVICE9 d3dDevice, const D3DCOLOR& vertexColour, const RECT& rDest) {
+    IDirect3DVertexBuffer9* vertexBuffer = 0;
+
+
+    DWORD fvf;
+    IDirect3DVertexShader9* vertex_shader = 0;
+    // Set vertex shader.
+    d3dDevice->GetVertexShader(&vertex_shader);
+    d3dDevice->GetFVF(&fvf);
+
+    //d3dDevice.
+    return NULL;
+
+
+}
+
 
 void drawRectangle(int x, int y, int h, int w, D3DCOLOR color, LPDIRECT3DDEVICE9 d3dDevice) {
     D3DRECT r = { x, y, x + w, y + h };
@@ -51,10 +70,11 @@ void APIENTRY endSceneHook(LPDIRECT3DDEVICE9 p_pDevice) {
     if (!d3dDevice) {
         d3dDevice = p_pDevice;
         initD3D(d3dDevice);
+        initDirectWrite(hwnd);
     }
 
     
-    renderOverlay(frame_time);
+    //renderOverlay(frame_time, p_pDevice);
 
     trampEndScene(p_pDevice);
 
@@ -67,7 +87,7 @@ void APIENTRY presentHook(LPDIRECT3DDEVICE9 p_pDevice, THIS_ CONST RECT* pSource
 
     frame_time = (double)calcFps(duration);
 
-    //renderOverlay(frame_time);
+    renderOverlay(frame_time, p_pDevice);
 
     begin = std::chrono::steady_clock::now();
     trampPresent(p_pDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
@@ -114,12 +134,16 @@ char** initD3D9Table(HWND window) {
 
 const char* REL_JMP = "\xE9";
 const char* ABS_JMP = "\xFF";
+
 //mov r10, [64 adr]
 const char* MOV_CMS = "\x49\xBA";
+
 //push r10
 const char* PSH_CMS = "\x41\x57";
+
 //pop r10
 const char* POP_CMS = "\x41\x5F";
+
 //jmp r10
 const char* JMP_CMS = "\x41\xFF\xE2";
 
@@ -127,9 +151,10 @@ const char* NOP = "\x90";
 // 1 byte instruction + 4 bytes address
 const uint64_t SIZE_OF_REL_JMP = 5;
 const uint64_t CM_SIZE_PRESENT = 15;
-// adapted from https://guidedhacking.com/threads/simple-x86-c-trampoline-hook.14188/
+// adapted from https://guidedhacking.com/threads/simple-x86-c-trampoline-hook.14188/ adapted for the Present() function
 // hookedFn: The function that's about to the hooked
 // hookFn: The function that will be executed before `hookedFn` by causing `hookFn` to take a detour
+// the hooking technique had to be adapted to use an absolute instead of a relative jump due to the way that memory mapping works on 64 bit systems
 void* WINAPI hookFnPresent(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr) {
 
     if (copyBytesSize < 5)
@@ -151,6 +176,8 @@ void* WINAPI hookFnPresent(char* hookedFn, char* hookFn, int copyBytesSize, unsi
     memcpy(trampoline, hookedFn, copyBytesSize);
     
     uint64_t hookedFnTrampolineOffset = reinterpret_cast<uint64_t>(hookedFn) + 5;// - trampoline - CM_SIZE;
+
+    //need to 
     memcpy(trampoline + copyBytesSize, PSH_CMS, 2);
     memcpy(trampoline + copyBytesSize + 2, MOV_CMS, sizeof(MOV_CMS));
     memcpy(trampoline + copyBytesSize + 4, &hookedFnTrampolineOffset, sizeof(hookedFnTrampolineOffset));

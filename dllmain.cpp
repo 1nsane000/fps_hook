@@ -9,10 +9,15 @@
 #include "d3d.h"
 #include <stdexcept>
 
+//number of bytes that are being overwritten for each hook
 constexpr int numBytesPresent = 7;
 constexpr int numBytesEndscene = 6;
+
+//vtable offset of each function
 #define PRESENT_OFF 17
 #define ENDSCENE_OFF 42
+
+//trampoline address
 endSceneFunc trampEndScene;
 presentFunc trampPresent;
 
