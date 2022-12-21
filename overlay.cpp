@@ -1,7 +1,6 @@
 #include "pch.h"
 #include <Windows.h>
 #include <d3d9.h>
-#include <d3dx9core.h>
 #include <stdint.h>
 #include <string>
 #include "d3d.h"
@@ -12,7 +11,6 @@
 #include <atomic>
 #include "overlay.h"
 
-LPD3DXFONT font;
 HWND overlayHandle;
 
 //extern HWND hwnd;
@@ -20,20 +18,6 @@ extern endSceneFunc trampEndScene;
 extern volatile long long frame_time;
 int test = 0;
 void initD3D(LPDIRECT3DDEVICE9 d3dDevice) {
-    D3DXCreateFont(
-        d3dDevice,
-        10,
-        10,
-        FW_BOLD,
-        0,
-        0,
-        DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        ANTIALIASED_QUALITY,
-        FF_DONTCARE | DEFAULT_PITCH,
-        TEXT("Arial"),
-        &font
-    );
 
 }
 
@@ -132,18 +116,6 @@ void drawText(double frame_time) {
     rect3.right = 330;
     rect3.bottom = 330;
     D3DCOLOR fontColor3 = D3DCOLOR_ARGB(255, 255, 1, 1);
-    if (!font) {
-        font->OnLostDevice();
-        font->OnResetDevice();
-    }
-    font->DrawText(
-        NULL,
-        std::to_wstring(frame_time).c_str(),
-        -1,
-        &rect3,
-        0,
-        fontColor3
-    );
 }
 
 IDirect3D9* d3d;
