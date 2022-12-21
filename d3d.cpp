@@ -10,6 +10,7 @@
 #include <TlHelp32.h>
 #include "overlay.h"
 #include "direct_write.h"
+#include <atomic>
 
 char* d3d9DeviceTable[119];
 extern endSceneFunc trampEndScene;
@@ -25,7 +26,8 @@ LPDIRECT3DDEVICE9 d3dDevice = NULL;
 
 extern HWND hwnd;
 
-long long frame_time;
+volatile long long frame_time;
+
 
 
 
@@ -70,9 +72,10 @@ void APIENTRY endSceneHook(LPDIRECT3DDEVICE9 p_pDevice) {
     if (!d3dDevice) {
         d3dDevice = p_pDevice;
         initD3D(d3dDevice);
-        initDirectWrite(hwnd);
+        initOverlay(hwnd);
+        //initDirectWrite(hwnd);
     }
-
+    
     
     //renderOverlay(frame_time, p_pDevice);
 
@@ -84,11 +87,8 @@ void APIENTRY presentHook(LPDIRECT3DDEVICE9 p_pDevice, THIS_ CONST RECT* pSource
     //
     end = std::chrono::steady_clock::now();
     long long duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-
     frame_time = (double)calcFps(duration);
-
-    renderOverlay(frame_time, p_pDevice);
-
+    //renderOverlay(frame_time, p_pDevice);
     begin = std::chrono::steady_clock::now();
     trampPresent(p_pDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }

@@ -1,11 +1,22 @@
 #include "pch.h"
 #include <Windows.h>
 #include <wingdi.h>
+#include <d3d9.h>
 
 void drawGdi(int x, int y) {
 	HDC hdc = CreateCompatibleDC(0);
-	HBITMAP bitmap = CreateCompatibleBitmap(hdc, x, y);
-	
+
+
+	const wchar_t* str = L"Test String!";
+	RECT r = { x , y, x, y };
+	DrawTextEx(
+		hdc,
+		(LPWSTR)str,
+		-1,
+		&r,
+		DT_NOCLIP,
+		0
+	);
 }
 
 

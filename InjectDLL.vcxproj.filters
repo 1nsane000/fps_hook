@@ -22,13 +22,13 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="d3d.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="overlay.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="direct_write.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="overlay.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
