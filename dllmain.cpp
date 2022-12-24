@@ -23,7 +23,9 @@ presentFunc trampPresent;
 
 unsigned char presentBytes[numBytesPresent];
 unsigned char endSceneBytes[numBytesEndscene];
+
 HWND hwnd = NULL;
+HANDLE threadStopEvent;
 
 BOOL CALLBACK enumGetProcessWindow(HWND _hwnd, LPARAM lParam)
 {
@@ -39,6 +41,10 @@ BOOL CALLBACK enumGetProcessWindow(HWND _hwnd, LPARAM lParam)
 	return TRUE;
 }
 
+HANDLE hThread;
+
+HMODULE hdllModule;
+char** vtable = 0;
 DWORD WINAPI RunThread(LPVOID lpParam) {
 	EnumWindows(enumGetProcessWindow, GetCurrentProcessId());
 
@@ -47,7 +53,6 @@ DWORD WINAPI RunThread(LPVOID lpParam) {
 		return 1;
 	}
 
-	char** vtable = 0;
 	while (!vtable) {
 		vtable = initD3D9Table(hwnd);
 	}
@@ -59,12 +64,13 @@ DWORD WINAPI RunThread(LPVOID lpParam) {
 
 	}
 
-	while (!GetAsyncKeyState(VK_DELETE)) {
-		Sleep(1000);
-	}
-
+	WaitForSingleObject(
+		threadStopEvent,sd	
+		INFINITE
+	);a
 	return 1;
 }
+
 
 
 
@@ -75,29 +81,39 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 {
 	switch (ul_reason_for_call)
 	{
-	case DLL_PROCESS_ATTACH:
-	{
-		HANDLE hThread = CreateThread(NULL, 0, RunThread, hModule, 0, NULL);
-		if (hThread) CloseHandle(hThread);
+		case DLL_PROCESS_ATTACH:
+		{
+				threadStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+			hdllModule = hModule;
+			hThread = CreateThread(0, 0, RunThread, hModule, 0, 0);
+			if (hThread) CloseHandle(hThread);
 		
-	}
-	break;
-	case DLL_THREAD_ATTACH:
-	{
-	}
-	break;
-	case DLL_THREAD_DETACH:
-	{
-	}
-	break;
-	case DLL_PROCESS_DETACH:
-	{
-		if (GetConsoleWindow()) {
-			FreeConsole();
 		}
-	}
-		
 		break;
+		case DLL_THREAD_ATTACH:
+		{
+		}
+		break;
+		case DLL_THREAD_DETACH:
+		{
+		}
+		break;
+		case DLL_PROCESS_DETACH:
+		{
+			SetEvent(threadStopEvent);
+
+			//WaitForSingleObject(hThread, INFINITE);
+			CloseHandle(hThread);
+			CloseHandle(threadStopEvent);
+
+			char* endscene_adr = vtable[ENDSCENE_OFF];
+			restoreFunc(endscene_adr, numBytesEndscene, endSceneBytes, L"Restore Endscene");
+			char* present_adr = vtable[PRESENT_OFF];
+			restoreFunc(present_adr, numBytesPresent, presentBytes, L"Restore Present");
+			break;
+		}
+	
+			
 	}
     return TRUE;
 }

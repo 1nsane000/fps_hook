@@ -12,3 +12,4 @@ void APIENTRY presentHook(LPDIRECT3DDEVICE9 p_pDevice, CONST RECT* pSourceRect, 
 char** initD3D9Table(HWND window);
 void* WINAPI hookFnPresent(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr);
 void* WINAPI hookFnEndscene(char* hookedFn, char* hookFn, int copyBytesSize, unsigned char* backupBytes, std::wstring descr);
+void restoreFunc(char* func, int restoreSize, unsigned char* restoreBytes, std::wstring descr);

@@ -13,8 +13,10 @@
 #include <atomic>
 
 char* d3d9DeviceTable[119];
+
 extern endSceneFunc trampEndScene;
 extern presentFunc trampPresent;
+extern HANDLE threadStopEvent;
 
 constexpr int FRAME_BUFFER_LEN = 30;
 
@@ -64,21 +66,18 @@ void drawRectangle(int x, int y, int h, int w, D3DCOLOR color, LPDIRECT3DDEVICE9
 }
 
 
-
 std::chrono::steady_clock::time_point begin;
 std::chrono::steady_clock::time_point end;
+void drawText(double frame_time);
 void APIENTRY endSceneHook(LPDIRECT3DDEVICE9 p_pDevice) {
 
     if (!d3dDevice) {
         d3dDevice = p_pDevice;
-        initD3D(d3dDevice);
+        //initD3D(d3dDevice);
         initOverlay(hwnd);
         //initDirectWrite(hwnd);
     }
     
-    
-    //renderOverlay(frame_time, p_pDevice);
-
     trampEndScene(p_pDevice);
 
 }
@@ -88,8 +87,12 @@ void APIENTRY presentHook(LPDIRECT3DDEVICE9 p_pDevice, THIS_ CONST RECT* pSource
     end = std::chrono::steady_clock::now();
     long long duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
     frame_time = (double)calcFps(duration);
-    //renderOverlay(frame_time, p_pDevice);
+
+
+    HDC dc = 0;
+
     begin = std::chrono::steady_clock::now();
+    //drawText(frame_time);
     trampPresent(p_pDevice, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
@@ -110,13 +113,19 @@ char** initD3D9Table(HWND window) {
 
     HRESULT dummyDeviceCreated = d3dSys->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, d3dpp.hDeviceWindow, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, &dummyDev);
 
-    if (dummyDeviceCreated != S_OK)
+    if (dummyDeviceCreated != D3D_OK)
     {
+        /*switch (dummyDeviceCreated) {
+        case D3DERR_DEVICELOST:  MessageBox(0, std::wstring(L"D3DERR_DEVICELOST").c_str(), L":(", 0); break;
+        case D3DERR_INVALIDCALL: MessageBox(0, std::wstring(L"D3DERR_INVALIDCALL").c_str(), L":(", 0); break;
+        case D3DERR_NOTAVAILABLE: MessageBox(0, std::wstring(L"D3DERR_NOTAVAILABLE").c_str(), L":(", 0); break; break;
+        case D3DERR_OUTOFVIDEOMEMORY: MessageBox(0, std::wstring(L"D3DERR_OUTOFVIDEOMEMORY").c_str(), L":(", 0); break; break;
+        }*/
         d3dpp.Windowed = !d3dpp.Windowed;
 
         dummyDeviceCreated = d3dSys->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, d3dpp.hDeviceWindow, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, &dummyDev);
 
-        if (dummyDeviceCreated != S_OK)
+        if (dummyDeviceCreated != D3D_OK)
         {
             d3dSys->Release();
             return NULL;
@@ -281,4 +290,18 @@ void* WINAPI hookFnEndscene(char* hookedFn, char* hookFn, int copyBytesSize, uns
     }
 
     return trampoline;
+}
+
+void restoreFunc(char* func,int restoreSize, unsigned char* restoreBytes, std::wstring descr) {
+    DWORD oldProtect;
+    if (!VirtualProtect(func, restoreSize, PAGE_EXECUTE_READWRITE, &oldProtect))
+    {
+        MessageBox(0, std::wstring(L"[hookFn] Failed to set RXW for " + descr).c_str(), L":(", 0);
+        return;
+    }
+    memcpy(func, restoreBytes, restoreSize);
+    if (!VirtualProtect(func, restoreSize, oldProtect, &oldProtect))
+    {
+        MessageBox(0, std::wstring(L"[hookFn] Failed to Restore Protection for " + descr).c_str(), L":(", 0);
+    }
 }
